@@ -1,15 +1,15 @@
-# GCP RAG Chatbot - Step 2: Basic Chat
+# GCP RAG Chatbot - Step 3: Gemini API Integration
 
-A minimal RAG chatbot project - currently at **Step 2: Basic Chat Endpoint**.
+A minimal RAG chatbot project - currently at **Step 3: Gemini API Integration**.
 
 ## Current Status
 
-✅ **Step 2 Complete**: Basic chat endpoint with UI
+✅ **Step 3 Complete**: Gemini API integration for AI responses
 
-- Backend: FastAPI with `/chat` POST endpoint (echo response, no AI yet)
+- Backend: FastAPI with `/chat` POST endpoint using Gemini API
 - Frontend: React chat interface with message history
-- Pydantic models for request/response validation
-- No external dependencies (no Gemini, no Firestore yet)
+- AI Integration: Real AI responses via Google Gemini API
+- Configuration: Environment-based settings with Pydantic
 
 ## Quick Start
 
@@ -22,20 +22,30 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies (includes Pydantic for Step 2)
+# Install dependencies (includes Gemini API client)
 pip install -r requirements.txt
+
+# Create .env file
+cp .env.example .env
+# Edit .env and add your GEMINI_API_KEY
 
 # Run the server
 uvicorn app.main:app --reload --port 8000
 ```
+
+**Get your Gemini API Key:**
+
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Add it to your `.env` file: `GEMINI_API_KEY=your_key_here`
 
 Backend will be available at `http://localhost:8000`
 
 **API Endpoints:**
 
 - `GET /` - Root endpoint
-- `GET /health` - Health check
-- `POST /chat` - Chat endpoint (accepts `{"message": "your text"}`)
+- `GET /health` - Health check (includes Gemini status)
+- `POST /chat` - Chat endpoint with AI responses (accepts `{"message": "your text"}`)
 
 ### Frontend
 
@@ -53,76 +63,120 @@ Frontend will be available at `http://localhost:5173`
 
 ## Test the Chat
 
-1. Start backend (port 8000)
+1. Start backend (port 8000) with `GEMINI_API_KEY` set
 2. Start frontend (port 5173)
 3. Open browser to `http://localhost:5173`
 4. Type a message and press Enter or click Send
-5. You should see your message and a response
+5. You should see your message and an AI-generated response from Gemini
 
 ### Test with curl
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hello!"}'
+  -d '{"message": "What is artificial intelligence?"}'
 ```
 
 Expected response:
 
 ```json
 {
-  "answer": "You said: 'Hello!'. This is Step 2 - basic chat endpoint working! (RAG coming in next steps)",
-  "message": "Hello!"
+  "answer": "Artificial intelligence (AI) is...",
+  "message": "What is artificial intelligence?"
 }
 ```
 
-## What's New in Step 2
+## What's New in Step 3
 
 ### Backend Changes
 
-- ✅ Added `POST /chat` endpoint
-- ✅ Pydantic models for request/response validation
-- ✅ Input validation (min/max length, required fields)
-- ✅ Error handling with proper HTTP status codes
+- ✅ Integrated Gemini API for AI responses
+- ✅ Created `GeminiClient` service module
+- ✅ Configuration management with `pydantic-settings`
+- ✅ Environment variable support (`.env` file)
+- ✅ System prompt configuration
+- ✅ Error handling for API failures
+- ✅ Health check includes Gemini status
 
-### Frontend Changes
+### Configuration
 
-- ✅ Chat interface with message history
-- ✅ User and assistant message bubbles
-- ✅ Input field with Enter key support
-- ✅ Loading states and error handling
-- ✅ Responsive design
+Create a `.env` file in the `backend/` directory:
 
-## Project Structure
+```env
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TEMPERATURE=0.7
+SYSTEM_PROMPT=You are a helpful AI assistant...
+DEBUG=false
+```
+
+### Project Structure
 
 ```
 backend/
   app/
-    main.py          # FastAPI app with /chat endpoint
-  requirements.txt   # fastapi, uvicorn, pydantic
+    main.py              # FastAPI app with /chat endpoint
+    config.py            # Configuration management
+    services/
+      gemini_client.py   # Gemini API client
+  tests/
+    test_main.py         # API endpoint tests
+  requirements.txt       # Dependencies including google-generativeai
+  .env.example          # Environment variables template
 
 frontend/
   src/
-    App.tsx          # Chat interface component
-    App.css          # Chat styling
-    config.ts        # API configuration
-    main.tsx
+    App.tsx              # Chat interface component
+    components/
+      Avatars.tsx        # Avatar components
+    hooks/
+      useAutoScroll.ts   # Auto-scroll hook
+    types/
+      chat.ts           # TypeScript types
   package.json
 ```
+
+## Testing
+
+Run backend tests:
+
+```bash
+cd backend
+pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
+```
+
+Tests include:
+
+- Endpoint validation
+- Gemini API integration (mocked)
+- Error handling
+- Input validation
 
 ## Next Steps
 
 We'll build incrementally:
 
 - ✅ Step 1: Health check endpoint
-- ✅ Step 2: Basic chat endpoint (current)
-- Step 3: Add Gemini API integration
+- ✅ Step 2: Basic chat endpoint
+- ✅ Step 3: Gemini API integration (current)
 - Step 4: Add Firestore for document storage
 - Step 5: Implement RAG retrieval
 - Step 6: Add ingestion scripts
 - Step 7: Deploy to Cloud Run
 
 ## Troubleshooting
+
+**Gemini API errors?**
+
+- Verify `GEMINI_API_KEY` is set in `.env` file
+- Check API key is valid at [Google AI Studio](https://makersuite.google.com/app/apikey)
+- Check API quota/limits
+- Review backend logs for detailed error messages
+
+**503 Service Unavailable?**
+
+- Gemini client not initialized - check `GEMINI_API_KEY` is set
+- Review backend startup logs
 
 **CORS errors?**
 
@@ -134,6 +188,7 @@ We'll build incrementally:
 - Check browser console for errors
 - Verify backend is running on port 8000
 - Check network tab for API call status
+- Verify Gemini API key is configured
 
 **Validation errors?**
 

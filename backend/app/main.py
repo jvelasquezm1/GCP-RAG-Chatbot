@@ -1,23 +1,40 @@
-"""FastAPI application - Step 2: Basic Chat Endpoint."""
+"""FastAPI application - Step 3: Gemini API Integration."""
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+import logging
+from app.config import settings
+from app.services.gemini_client import GeminiClient
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG if settings.debug else logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="GCP RAG Chatbot API",
-    version="0.2.0"
+    title=settings.api_title,
+    version=settings.api_version
 )
 
-# Configure CORS - allow localhost for development
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Initialize Gemini client (will fail if API key is not set)
+try:
+    gemini_client = GeminiClient(api_key=settings.gemini_api_key)
+    logger.info("Gemini client initialized successfully")
+except Exception as e:
+    logger.warning(f"Gemini client initialization failed: {str(e)}")
+    gemini_client = None
 
 
 # Request/Response Models
@@ -37,7 +54,7 @@ async def root():
     """Root endpoint."""
     return {
         "message": "GCP RAG Chatbot API",
-        "version": "0.2.0",
+        "version": settings.api_version,
         "status": "running"
     }
 
@@ -45,26 +62,48 @@ async def root():
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "healthy"}
+    gemini_status = "available" if gemini_client else "unavailable"
+    return {
+        "status": "healthy",
+        "gemini": gemini_status
+    }
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Basic chat endpoint - Step 2.
-    Returns a simple echo response (no RAG yet).
+    Chat endpoint - Step 3.
+    Uses Gemini API to generate AI responses.
     """
     if not request.message or not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
     
-    # Simple echo response for Step 2 (no AI, no RAG yet)
-    # Just returns a friendly acknowledgment
-    response_text = f"You said: '{request.message}'. This is Step 2 - basic chat endpoint working! (RAG coming in next steps)"
+    # Check if Gemini client is available
+    if not gemini_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API is not configured. Please set GEMINI_API_KEY environment variable."
+        )
     
-    return ChatResponse(
-        answer=response_text,
-        message=request.message
-    )
+    try:
+        # Generate response using Gemini
+        response_text = gemini_client.generate_response(
+            prompt=request.message,
+            system_instruction=settings.system_prompt,
+            temperature=settings.gemini_temperature
+        )
+        
+        return ChatResponse(
+            answer=response_text,
+            message=request.message
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating response: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating response: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
