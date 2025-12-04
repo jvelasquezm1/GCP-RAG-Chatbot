@@ -136,6 +136,18 @@ frontend/
   package.json
 ```
 
+## Backend deployment
+
+```bash
+cd backend
+gcloud run deploy rag-backend \
+  --source . \
+  --platform managed \
+  --allow-unauthenticated \
+  --region us-central1 \
+  --env-vars-file .env.yaml
+```
+
 ## Testing
 
 Run backend tests:
@@ -162,7 +174,6 @@ We'll build incrementally:
 - Step 4: Add Firestore for document storage
 - Step 5: Implement RAG retrieval
 - Step 6: Add ingestion scripts
-- Step 7: Deploy to Cloud Run
 
 ## Troubleshooting
 

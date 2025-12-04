@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import os
 import logging
 from app.config import settings
 from app.services.gemini_client import GeminiClient
@@ -29,9 +30,14 @@ app.add_middleware(
 )
 
 # Initialize Gemini client (will fail if API key is not set)
+# This is non-blocking - the app will start even if Gemini is not configured
+gemini_client = None
 try:
-    gemini_client = GeminiClient(api_key=settings.gemini_api_key)
-    logger.info("Gemini client initialized successfully")
+    if settings.gemini_api_key:
+        gemini_client = GeminiClient(api_key=settings.gemini_api_key)
+        logger.info("Gemini client initialized successfully")
+    else:
+        logger.warning("GEMINI_API_KEY not set - Gemini features will be unavailable")
 except Exception as e:
     logger.warning(f"Gemini client initialization failed: {str(e)}")
     gemini_client = None
@@ -105,7 +111,8 @@ async def chat(request: ChatRequest):
             detail=f"Error generating response: {str(e)}"
         )
 
+port = int(os.environ.get("PORT", 8000))
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
