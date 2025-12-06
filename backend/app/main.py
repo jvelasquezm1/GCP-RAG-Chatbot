@@ -1,4 +1,4 @@
-"""FastAPI application - Step 3: Gemini API Integration."""
+"""FastAPI application - Step 4: Firestore Integration."""
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -6,6 +6,7 @@ import os
 import logging
 from app.config import settings
 from app.services.gemini_client import GeminiClient
+from app.services.firestore_client import FirestoreClient
 
 # Configure logging
 logging.basicConfig(
@@ -42,6 +43,22 @@ except Exception as e:
     logger.warning(f"Gemini client initialization failed: {str(e)}")
     gemini_client = None
 
+# Initialize Firestore client (will fail if project ID is not set)
+# This is non-blocking - the app will start even if Firestore is not configured
+firestore_client = None
+try:
+    if settings.gcp_project_id:
+        firestore_client = FirestoreClient(
+            project_id=settings.gcp_project_id,
+            collection_name=settings.firestore_collection
+        )
+        logger.info("Firestore client initialized successfully")
+    else:
+        logger.warning("GCP_PROJECT_ID not set - Firestore features will be unavailable")
+except Exception as e:
+    logger.warning(f"Firestore client initialization failed: {str(e)}")
+    firestore_client = None
+
 
 # Request/Response Models
 class ChatRequest(BaseModel):
@@ -69,9 +86,23 @@ async def root():
 async def health():
     """Health check endpoint."""
     gemini_status = "available" if gemini_client else "unavailable"
+    
+    # Test Firestore connection if client is initialized
+    firestore_status = "unavailable"
+    if firestore_client:
+        try:
+            if firestore_client.test_connection():
+                firestore_status = "available"
+            else:
+                firestore_status = "connection_failed"
+        except Exception as e:
+            logger.warning(f"Firestore health check failed: {str(e)}")
+            firestore_status = "error"
+    
     return {
         "status": "healthy",
-        "gemini": gemini_status
+        "gemini": gemini_status,
+        "firestore": firestore_status
     }
 
 

@@ -15,13 +15,18 @@ class Settings(BaseSettings):
     
     # API Configuration
     api_title: str = "GCP RAG Chatbot API"
-    api_version: str = "0.3.0"
+    api_version: str = "0.4.0"
     debug: bool = False
     
     # Gemini API Configuration
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-2.5-flash"
     gemini_temperature: float = 0.7
+    
+    # Firestore Configuration
+    gcp_project_id: Optional[str] = None
+    gcp_location: str = "global"
+    firestore_collection: str = "documents"
     
     # System Prompt
     system_prompt: str = (
