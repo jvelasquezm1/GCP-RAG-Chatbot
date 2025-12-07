@@ -1,15 +1,16 @@
-# GCP RAG Chatbot - Step 4: Firestore Integration
+# GCP RAG Chatbot - Step 5: RAG Retrieval
 
-A minimal RAG chatbot project - currently at **Step 4: Firestore Integration**.
+A minimal RAG chatbot project - currently at **Step 5: RAG Retrieval**.
 
 ## Current Status
 
-✅ **Step 4 Complete**: Firestore integration for document storage
+✅ **Step 5 Complete**: RAG (Retrieval-Augmented Generation) retrieval implementation
 
 - Backend: FastAPI with `/chat` POST endpoint using Gemini API
 - Frontend: React chat interface with message history
 - AI Integration: Real AI responses via Google Gemini API
 - Document Storage: Firestore client for storing and retrieving documents
+- **RAG Retrieval**: Vector similarity search with context-aware responses
 - Configuration: Environment-based settings with Pydantic
 
 ## Quick Start
@@ -95,9 +96,30 @@ Expected response:
 }
 ```
 
-## What's New in Step 4
+## What's New in Step 5
 
 ### Backend Changes
+
+- ✅ Implemented RAG retrieval flow in chat endpoint
+- ✅ Added embedding generation to `GeminiClient`
+- ✅ Added vector similarity search to `FirestoreClient`
+- ✅ Created text processing utilities (`chunk_text`, `sanitize_input`)
+- ✅ RAG configuration (top_k, similarity threshold, enable/disable)
+- ✅ Context-aware prompt generation with retrieved documents
+- ✅ Graceful fallback when RAG retrieval fails
+
+### RAG Flow
+
+1. User sends a message
+2. Generate query embedding using Gemini embedding model
+3. Search Firestore for similar document chunks using cosine similarity
+4. Retrieve top K most relevant chunks
+5. Build context from retrieved documents
+6. Generate response using Gemini with context
+
+## Previous Steps
+
+### Step 4: Firestore Integration
 
 - ✅ Integrated Firestore for document storage
 - ✅ Created `FirestoreClient` service module
@@ -126,12 +148,22 @@ Create a `.env` file in the `backend/` directory:
 GEMINI_API_KEY=your_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TEMPERATURE=0.7
+GEMINI_EMBEDDING_MODEL=models/text-embedding-004
 SYSTEM_PROMPT=You are a helpful AI assistant...
 
 # Firestore
 GCP_PROJECT_ID=your-gcp-project-id
 GCP_LOCATION=global
 FIRESTORE_COLLECTION=documents
+
+# Text Processing
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+
+# RAG Configuration
+RAG_ENABLED=true
+RAG_TOP_K=5
+RAG_SIMILARITY_THRESHOLD=0.0
 
 # Application
 DEBUG=false
@@ -142,11 +174,13 @@ DEBUG=false
 ```
 backend/
   app/
-    main.py              # FastAPI app with /chat endpoint
+    main.py              # FastAPI app with /chat endpoint (RAG-enabled)
     config.py            # Configuration management
     services/
-      gemini_client.py   # Gemini API client
-      firestore_client.py # Firestore client
+      gemini_client.py   # Gemini API client (with embeddings)
+      firestore_client.py # Firestore client (with vector search)
+    utils/
+      text_processing.py # Text chunking and sanitization utilities
   tests/
     test_main.py         # API endpoint tests
   requirements.txt       # Dependencies including google-generativeai, google-cloud-firestore
@@ -199,8 +233,8 @@ We'll build incrementally:
 - ✅ Step 1: Health check endpoint
 - ✅ Step 2: Basic chat endpoint
 - ✅ Step 3: Gemini API integration
-- ✅ Step 4: Firestore integration (current)
-- Step 5: Implement RAG retrieval
+- ✅ Step 4: Firestore integration
+- ✅ Step 5: Implement RAG retrieval (current)
 - Step 6: Add ingestion scripts
 
 ## Troubleshooting
@@ -243,3 +277,12 @@ We'll build incrementally:
 
 - Message must be between 1-1000 characters
 - Message cannot be empty or only whitespace
+
+**RAG not working?**
+
+- Verify `RAG_ENABLED=true` in `.env` file
+- Ensure Firestore has documents with embeddings (use ingestion script)
+- Check that `GEMINI_EMBEDDING_MODEL` is set correctly
+- Verify documents in Firestore have an `embedding` field
+- Review backend logs for RAG retrieval errors
+- If no documents are found, the system will fall back to general knowledge responses

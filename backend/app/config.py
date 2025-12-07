@@ -15,18 +15,28 @@ class Settings(BaseSettings):
     
     # API Configuration
     api_title: str = "GCP RAG Chatbot API"
-    api_version: str = "0.4.0"
+    api_version: str = "0.5.0"
     debug: bool = False
     
     # Gemini API Configuration
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-2.5-flash"
     gemini_temperature: float = 0.7
+    gemini_embedding_model: str = "models/text-embedding-004"
     
     # Firestore Configuration
     gcp_project_id: Optional[str] = None
     gcp_location: str = "global"
     firestore_collection: str = "documents"
+    
+    # Text Processing Configuration
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    
+    # RAG Configuration
+    rag_enabled: bool = True
+    rag_top_k: int = 5  # Number of document chunks to retrieve
+    rag_similarity_threshold: float = 0.0  # Minimum similarity score (0.0 = no threshold)
     
     # System Prompt
     system_prompt: str = (

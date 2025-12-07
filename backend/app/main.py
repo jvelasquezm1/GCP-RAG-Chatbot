@@ -1,4 +1,4 @@
-"""FastAPI application - Step 4: Firestore Integration."""
+"""FastAPI application - Step 5: RAG Retrieval."""
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -109,8 +109,8 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Chat endpoint - Step 3.
-    Uses Gemini API to generate AI responses.
+    Chat endpoint - Step 5: RAG Retrieval.
+    Uses RAG (Retrieval-Augmented Generation) to provide context-aware responses.
     """
     if not request.message or not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -123,10 +123,72 @@ async def chat(request: ChatRequest):
         )
     
     try:
-        # Generate response using Gemini
+        # Step 5: RAG Retrieval Flow
+        context_text = ""
+        retrieved_docs = []
+        
+        # Check if RAG is enabled and Firestore is available
+        if settings.rag_enabled and firestore_client:
+            try:
+                # 1. Generate query embedding
+                query_embedding = gemini_client.get_embedding(
+                    request.message,
+                    task_type="retrieval_query"
+                )
+                
+                # 2. Search for similar documents
+                retrieved_docs = firestore_client.search_similar_documents(
+                    query_embedding=query_embedding,
+                    top_k=settings.rag_top_k,
+                    similarity_threshold=settings.rag_similarity_threshold,
+                    max_documents=1000  # Limit for performance (adjust as needed)
+                )
+                
+                # 3. Build context from retrieved documents
+                if retrieved_docs:
+                    context_parts = []
+                    for i, doc in enumerate(retrieved_docs, 1):
+                        text = doc.get('text', '')
+                        metadata = doc.get('metadata', {})
+                        source = metadata.get('source_file', 'document')
+                        context_parts.append(f"[Document {i} from {source}]:\n{text}")
+                    
+                    context_text = "\n\n".join(context_parts)
+                    logger.info(f"Retrieved {len(retrieved_docs)} relevant documents for RAG")
+                else:
+                    logger.info("No relevant documents found in Firestore")
+                    
+            except Exception as e:
+                # If RAG retrieval fails, log but continue without context
+                logger.warning(f"RAG retrieval failed, continuing without context: {str(e)}")
+                context_text = ""
+        
+        # 4. Build prompt with context (if available)
+        if context_text:
+            # Enhanced system prompt for RAG
+            rag_system_prompt = (
+                f"{settings.system_prompt}\n\n"
+                "Use the following retrieved documents to answer the user's question. "
+                "If the documents contain relevant information, use it to provide a comprehensive answer. "
+                "If the documents don't contain relevant information, answer based on your general knowledge, "
+                "but mention that the information wasn't found in the provided documents."
+            )
+            
+            # Build prompt with context
+            full_prompt = (
+                f"Context from retrieved documents:\n\n{context_text}\n\n"
+                f"User question: {request.message}\n\n"
+                "Please provide a helpful answer based on the context above."
+            )
+        else:
+            # No context available - use standard prompt
+            rag_system_prompt = settings.system_prompt
+            full_prompt = request.message
+        
+        # 5. Generate response using Gemini with context
         response_text = gemini_client.generate_response(
-            prompt=request.message,
-            system_instruction=settings.system_prompt,
+            prompt=full_prompt,
+            system_instruction=rag_system_prompt,
             temperature=settings.gemini_temperature
         )
         

@@ -1,8 +1,9 @@
 """Firestore client for document storage and retrieval."""
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from google.cloud import firestore
 import logging
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -159,5 +160,101 @@ class FirestoreClient:
         except Exception as e:
             logger.warning(f"Firestore connection test failed: {str(e)}")
             return False
+    
+    def cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """
+        Calculate cosine similarity between two vectors.
+        
+        Args:
+            vec1: First vector
+            vec2: Second vector
+            
+        Returns:
+            Cosine similarity score (0.0 to 1.0)
+        """
+        if len(vec1) != len(vec2):
+            raise ValueError("Vectors must have the same length")
+        
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        magnitude1 = math.sqrt(sum(a * a for a in vec1))
+        magnitude2 = math.sqrt(sum(a * a for a in vec2))
+        
+        if magnitude1 == 0 or magnitude2 == 0:
+            return 0.0
+        
+        return dot_product / (magnitude1 * magnitude2)
+    
+    def search_similar_documents(
+        self,
+        query_embedding: List[float],
+        top_k: int = 5,
+        similarity_threshold: float = 0.0,
+        max_documents: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for documents similar to the query embedding using cosine similarity.
+        
+        Note: Firestore doesn't have native vector search, so this method:
+        1. Retrieves documents from Firestore (up to max_documents)
+        2. Calculates cosine similarity for each document
+        3. Returns top_k most similar documents
+        
+        For production use with large collections, consider using a dedicated
+        vector database or implementing a more efficient search strategy.
+        
+        Args:
+            query_embedding: Query embedding vector
+            top_k: Number of top similar documents to return
+            similarity_threshold: Minimum similarity score (0.0 to 1.0)
+            max_documents: Maximum number of documents to retrieve for comparison
+                          (None = retrieve all documents, use with caution)
+            
+        Returns:
+            List of document dictionaries with similarity scores, sorted by similarity
+            Each document includes a 'similarity' field
+        """
+        try:
+            # Retrieve documents from Firestore
+            query = self.collection
+            
+            # Limit documents retrieved for performance
+            # In production, you'd want to use a proper vector database
+            if max_documents:
+                query = query.limit(max_documents)
+            
+            docs = query.stream()
+            
+            # Calculate similarity for each document
+            scored_docs = []
+            for doc in docs:
+                doc_data = doc.to_dict()
+                
+                # Skip documents without embeddings
+                if 'embedding' not in doc_data or not doc_data['embedding']:
+                    continue
+                
+                doc_embedding = doc_data['embedding']
+                
+                # Calculate cosine similarity
+                similarity = self.cosine_similarity(query_embedding, doc_embedding)
+                
+                # Filter by threshold
+                if similarity >= similarity_threshold:
+                    # Add similarity score and document ID to result
+                    result_doc = {
+                        **doc_data,
+                        'similarity': similarity,
+                        'doc_id': doc.id
+                    }
+                    scored_docs.append(result_doc)
+            
+            # Sort by similarity (descending) and return top_k
+            scored_docs.sort(key=lambda x: x['similarity'], reverse=True)
+            
+            return scored_docs[:top_k]
+            
+        except Exception as e:
+            logger.error(f"Error searching similar documents: {str(e)}")
+            raise
 
 
