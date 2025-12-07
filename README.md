@@ -1,16 +1,17 @@
-# GCP RAG Chatbot - Step 5: RAG Retrieval
+# GCP RAG Chatbot - Step 6: Document Ingestion
 
-A minimal RAG chatbot project - currently at **Step 5: RAG Retrieval**.
+A minimal RAG chatbot project - currently at **Step 6: Document Ingestion**.
 
 ## Current Status
 
-✅ **Step 5 Complete**: RAG (Retrieval-Augmented Generation) retrieval implementation
+✅ **Step 6 Complete**: Document ingestion scripts for populating Firestore
 
 - Backend: FastAPI with `/chat` POST endpoint using Gemini API
 - Frontend: React chat interface with message history
 - AI Integration: Real AI responses via Google Gemini API
 - Document Storage: Firestore client for storing and retrieving documents
 - **RAG Retrieval**: Vector similarity search with context-aware responses
+- **Document Ingestion**: Scripts to process and ingest documents into Firestore
 - Configuration: Environment-based settings with Pydantic
 
 ## Quick Start
@@ -55,7 +56,29 @@ Backend will be available at `http://localhost:8000`
 
 - `GET /` - Root endpoint
 - `GET /health` - Health check (includes Gemini and Firestore status)
-- `POST /chat` - Chat endpoint with AI responses (accepts `{"message": "your text"}`)
+- `POST /chat` - Chat endpoint with RAG-enabled AI responses (accepts `{"message": "your text"}`)
+
+### Document Ingestion
+
+Before using RAG, you need to ingest documents into Firestore:
+
+```bash
+cd ingestion
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Ingest a single document
+python ingest_docs.py path/to/document.pdf
+
+# Ingest a directory of documents
+python ingest_docs.py path/to/documents/ --recursive
+
+# Ingest with custom options
+python ingest_docs.py docs/ --recursive --pattern "*.md" --chunk-size 1000
+```
+
+See `ingestion/README.md` for detailed usage instructions.
 
 ### Frontend
 
@@ -96,9 +119,32 @@ Expected response:
 }
 ```
 
-## What's New in Step 5
+## What's New in Step 6
+
+### Ingestion Scripts
+
+- ✅ Document ingestion script (`ingestion/ingest_docs.py`)
+- ✅ Support for multiple file formats (Markdown, PDF, Text)
+- ✅ Automatic text chunking with configurable size and overlap
+- ✅ Embedding generation for document chunks
+- ✅ Firestore storage with metadata
+- ✅ CLI interface with flexible options
+- ✅ Error handling and validation
+- ✅ Directory processing with recursive search
 
 ### Backend Changes
+
+- ✅ Implemented RAG retrieval flow in chat endpoint
+- ✅ Added embedding generation to `GeminiClient`
+- ✅ Added vector similarity search to `FirestoreClient`
+- ✅ Created text processing utilities (`chunk_text`, `sanitize_input`)
+- ✅ RAG configuration (top_k, similarity threshold, enable/disable)
+- ✅ Context-aware prompt generation with retrieved documents
+- ✅ Graceful fallback when RAG retrieval fails
+
+## Previous Steps
+
+### Step 5: RAG Retrieval
 
 - ✅ Implemented RAG retrieval flow in chat endpoint
 - ✅ Added embedding generation to `GeminiClient`
@@ -196,6 +242,11 @@ frontend/
     types/
       chat.ts           # TypeScript types
   package.json
+
+ingestion/
+  ingest_docs.py        # Document ingestion script
+  requirements.txt      # Ingestion dependencies
+  README.md             # Ingestion documentation
 ```
 
 ## Backend deployment
@@ -234,8 +285,15 @@ We'll build incrementally:
 - ✅ Step 2: Basic chat endpoint
 - ✅ Step 3: Gemini API integration
 - ✅ Step 4: Firestore integration
-- ✅ Step 5: Implement RAG retrieval (current)
-- Step 6: Add ingestion scripts
+- ✅ Step 5: Implement RAG retrieval
+- ✅ Step 6: Add ingestion scripts (current)
+
+**All core features are now complete!** The RAG chatbot is fully functional with:
+
+- Document ingestion capabilities
+- Vector similarity search
+- Context-aware AI responses
+- Production-ready architecture
 
 ## Troubleshooting
 
@@ -286,3 +344,13 @@ We'll build incrementally:
 - Verify documents in Firestore have an `embedding` field
 - Review backend logs for RAG retrieval errors
 - If no documents are found, the system will fall back to general knowledge responses
+
+**Ingestion script errors?**
+
+- Verify `GEMINI_API_KEY` and `GCP_PROJECT_ID` are set in `.env` file
+- Ensure Firestore API is enabled in your GCP project
+- For local development, authenticate: `gcloud auth application-default login`
+- Check that the input file/directory exists and is readable
+- Verify file format is supported (`.md`, `.markdown`, `.pdf`, `.txt`)
+- Review ingestion logs for detailed error messages
+- Ensure PyPDF2 is installed correctly: `pip install PyPDF2`

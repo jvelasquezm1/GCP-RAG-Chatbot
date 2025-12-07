@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 import google.generativeai as genai
 from google.cloud import firestore
-from pypdf2 import PdfReader
+from PyPDF2 import PdfReader
 
 # Import utilities from backend
 from app.utils.text_processing import chunk_text, sanitize_input
@@ -50,19 +50,38 @@ class DocumentIngester:
             gemini_api_key: Gemini API key (defaults to env/settings)
             project_id: GCP project ID (defaults to env/settings)
             collection: Firestore collection name (defaults to settings)
+            
+        Raises:
+            ValueError: If required configuration is missing
         """
         self.gemini_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or settings.gemini_api_key
         self.project_id = project_id or os.getenv("GCP_PROJECT_ID") or settings.gcp_project_id
         self.collection_name = collection or os.getenv("FIRESTORE_COLLECTION") or settings.firestore_collection
         
+        # Validate required configuration
+        if not self.gemini_api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is required. Set it in environment variable or .env file."
+            )
+        if not self.project_id:
+            raise ValueError(
+                "GCP_PROJECT_ID is required. Set it in environment variable or .env file."
+            )
+        
         # Initialize Gemini
-        genai.configure(api_key=self.gemini_api_key)
-        self.embedding_model = settings.gemini_embedding_model
+        try:
+            genai.configure(api_key=self.gemini_api_key)
+            self.embedding_model = settings.gemini_embedding_model
+            logger.info(f"Gemini configured with embedding model: {self.embedding_model}")
+        except Exception as e:
+            logger.error(f"Failed to configure Gemini: {str(e)}")
+            raise
         
         # Initialize Firestore
         try:
             self.db = firestore.Client(project=self.project_id)
             self.collection = self.db.collection(self.collection_name)
+            logger.info(f"Firestore initialized for project: {self.project_id}, collection: {self.collection_name}")
         except Exception as e:
             logger.error(f"Failed to initialize Firestore: {str(e)}")
             raise
@@ -252,10 +271,30 @@ class DocumentIngester:
             raise ValueError(f"Directory does not exist: {directory}")
         
         # Find all matching files
-        if recursive:
-            files = list(directory.rglob(pattern))
+        # Handle pattern with multiple extensions (e.g., "*.{md,markdown,pdf,txt}")
+        if '{' in pattern and '}' in pattern:
+            # Expand pattern with multiple extensions
+            base_pattern = pattern.split('{')[0]
+            extensions = pattern.split('{')[1].split('}')[0].split(',')
+            files = []
+            for ext in extensions:
+                ext_pattern = f"{base_pattern}{ext.strip()}"
+                if recursive:
+                    files.extend(directory.rglob(ext_pattern))
+                else:
+                    files.extend(directory.glob(ext_pattern))
+            # Remove duplicates while preserving order
+            seen = set()
+            files = [f for f in files if not (f in seen or seen.add(f))]
         else:
-            files = list(directory.glob(pattern))
+            if recursive:
+                files = list(directory.rglob(pattern))
+            else:
+                files = list(directory.glob(pattern))
+        
+        if not files:
+            logger.warning(f"No files found matching pattern '{pattern}' in {directory}")
+            return 0
         
         logger.info(f"Found {len(files)} files to process in {directory}")
         
@@ -333,6 +372,11 @@ def main():
     # Initialize ingester
     try:
         ingester = DocumentIngester()
+        logger.info("Document ingester initialized successfully")
+    except ValueError as e:
+        logger.error(f"Configuration error: {str(e)}")
+        logger.error("Please ensure GEMINI_API_KEY and GCP_PROJECT_ID are set in your .env file")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Failed to initialize ingester: {str(e)}")
         sys.exit(1)
