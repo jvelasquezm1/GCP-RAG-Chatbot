@@ -1,6 +1,6 @@
 """Firestore client for document storage and retrieval."""
 import os
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from google.cloud import firestore
 import logging
 import math

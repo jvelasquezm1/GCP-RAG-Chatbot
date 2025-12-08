@@ -1,6 +1,6 @@
 """IP whitelisting middleware for ingestion endpoints."""
 from fastapi import Request, HTTPException, status
-from typing import List, Optional
+from typing import List
 import ipaddress
 import logging
 from app.config import settings

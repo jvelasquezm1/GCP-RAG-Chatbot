@@ -1,5 +1,4 @@
 """Configuration management for the RAG chatbot backend."""
-import os
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -44,24 +43,9 @@ class Settings(BaseSettings):
         "If you don't know something, say so honestly."
     )
     
-    # CORS Configuration
-    cors_origins: list[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-    ]
-    
     # IP Whitelist Configuration for Ingestion
     ingestion_ip_whitelist: str = ""  # Comma-separated list of IPs or CIDR ranges
     ingestion_enabled: bool = True
-    
-    @classmethod
-    def parse_cors_origins(cls, v):
-        """Parse CORS origins from string or list."""
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
     
     def get_ip_whitelist(self) -> list[str]:
         """Parse IP whitelist from comma-separated string."""

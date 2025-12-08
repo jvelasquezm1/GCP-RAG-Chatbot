@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import os
 import logging
@@ -23,10 +22,10 @@ app = FastAPI(
     version=settings.api_version
 )
 
-# Configure CORS
+# Configure CORS - Allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origin_regex=r".*",  # Allow all origins using regex
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
