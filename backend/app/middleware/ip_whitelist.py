@@ -123,7 +123,7 @@ async def ip_whitelist_middleware(request: Request, call_next):
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied. Your IP address ({client_ip}) is not whitelisted."
+                    detail=f"Access denied. Your IP address is not whitelisted."
                 )
             else:
                 logger.info(f"IP {client_ip} is whitelisted, allowing access")

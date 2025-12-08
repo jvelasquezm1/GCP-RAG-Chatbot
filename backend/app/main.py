@@ -35,7 +35,20 @@ app.add_middleware(
 @app.middleware("http")
 async def ip_whitelist_middleware_handler(request: Request, call_next):
     """IP whitelist middleware wrapper."""
-    return await ip_whitelist_middleware(request, call_next)
+    try:
+        return await ip_whitelist_middleware(request, call_next)
+    
+    except HTTPException as exc:
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers
+        )
+        
+        response.headers["Access-Control-Allow-Origin"] = "*" 
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        return response
 
 # Initialize Gemini client (will fail if API key is not set)
 # This is non-blocking - the app will start even if Gemini is not configured
