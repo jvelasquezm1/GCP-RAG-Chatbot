@@ -6,6 +6,8 @@ import {
   Send,
   MessageSquare,
   AlertTriangle,
+  Upload,
+  CheckCircle2,
 } from "lucide-react";
 import config from "./config";
 import "./App.css";
@@ -25,6 +27,14 @@ function App() {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    success: boolean;
+    message: string;
+    filename?: string;
+    chunksCreated?: number;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const messagesEndRef = useAutoScroll([messages, isLoading]);
@@ -101,6 +111,95 @@ function App() {
     setInputMessage(e.target.value);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = [
+      "application/pdf",
+      "text/markdown",
+      "text/plain",
+      "text/x-markdown",
+    ];
+    const allowedExtensions = [".pdf", ".md", ".markdown", ".txt"];
+    const fileExt = file.name
+      .substring(file.name.lastIndexOf("."))
+      .toLowerCase();
+
+    if (
+      !allowedTypes.includes(file.type) &&
+      !allowedExtensions.includes(fileExt)
+    ) {
+      setError(
+        `Unsupported file type. Supported: PDF, Markdown (.md), or Text (.txt)`
+      );
+      return;
+    }
+
+    // Validate file size (10MB max)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File size exceeds maximum allowed size of 10MB`);
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    setUploadStatus(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await axios.post(`${config.apiUrl}/ingest`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      setUploadStatus({
+        success: true,
+        message: response.data.message,
+        filename: response.data.filename,
+        chunksCreated: response.data.chunks_created,
+      });
+
+      // Add success message to chat
+      const successMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `✅ Document "${response.data.filename}" successfully ingested! ${response.data.chunks_created} chunks created. You can now ask questions about this document.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, successMessage]);
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to upload document";
+      setError(errorMessage);
+
+      const errorMsg: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: `❌ Upload failed: ${errorMessage}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const MessageBubble: React.FC<{ message: Message; index: number }> = ({
     message,
     index,
@@ -162,12 +261,33 @@ function App() {
                 GCP RAG Chatbot
               </h1>
               <p className="text-xs text-gray-400 font-medium">
-                Step 2: Basic Chat
+                RAG Chatbot with Document Ingestion
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.md,.markdown,.txt"
+              onChange={handleFileUpload}
+              className="hidden"
+              disabled={isUploading}
+            />
+            <button
+              onClick={handleUploadClick}
+              disabled={isUploading}
+              className="p-2 rounded-xl bg-green-700 text-green-100 hover:bg-green-600 active:scale-95 transition duration-200 ease-in-out flex items-center shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Upload Document"
+              aria-label="Upload Document"
+            >
+              {isUploading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Upload className="w-5 h-5" />
+              )}
+            </button>
             <button
               onClick={handleClearChat}
               className="p-2 rounded-xl bg-red-700 text-red-100 hover:bg-red-600 active:scale-95 transition duration-200 ease-in-out flex items-center shadow-md"
@@ -216,6 +336,43 @@ function App() {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {uploadStatus && uploadStatus.success && (
+          <div className="bg-green-900/40 border-t-2 border-green-700 px-6 py-3 flex justify-between items-center backdrop-blur-sm shadow-inner">
+            <div className="flex items-center space-x-3">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              <div className="flex flex-col">
+                <span className="text-sm text-green-300 font-medium">
+                  {uploadStatus.message}
+                </span>
+                {uploadStatus.chunksCreated !== undefined && (
+                  <span className="text-xs text-green-400">
+                    {uploadStatus.chunksCreated} chunks created
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              onClick={() => setUploadStatus(null)}
+              className="text-green-400 hover:text-white transition-colors text-lg leading-none p-1 rounded-full hover:bg-green-700/50"
+              aria-label="Dismiss success message"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-900/40 border-t-2 border-red-700 px-6 py-3 flex justify-between items-center backdrop-blur-sm shadow-inner">

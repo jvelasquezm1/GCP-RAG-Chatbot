@@ -1,12 +1,14 @@
-"""FastAPI application - Step 5: RAG Retrieval."""
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 import os
 import logging
 from app.config import settings
 from app.services.gemini_client import GeminiClient
 from app.services.firestore_client import FirestoreClient
+from app.services.ingestion_service import IngestionService
+from app.middleware.ip_whitelist import ip_whitelist_middleware
 
 # Configure logging
 logging.basicConfig(
@@ -29,6 +31,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add IP whitelist middleware for ingestion endpoints
+@app.middleware("http")
+async def ip_whitelist_middleware_handler(request: Request, call_next):
+    """IP whitelist middleware wrapper."""
+    return await ip_whitelist_middleware(request, call_next)
 
 # Initialize Gemini client (will fail if API key is not set)
 # This is non-blocking - the app will start even if Gemini is not configured
@@ -72,6 +80,15 @@ class ChatResponse(BaseModel):
     message: str = Field(..., description="Original user message")
 
 
+class IngestionResponse(BaseModel):
+    """Response model for ingestion endpoint."""
+    success: bool = Field(..., description="Whether ingestion was successful")
+    filename: str = Field(..., description="Name of the uploaded file")
+    chunks_created: int = Field(..., description="Number of chunks created")
+    total_chunks: int = Field(..., description="Total number of chunks processed")
+    message: str = Field(..., description="Status message")
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -109,7 +126,7 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Chat endpoint - Step 5: RAG Retrieval.
+    Chat endpoint - RAG Retrieval.
     Uses RAG (Retrieval-Augmented Generation) to provide context-aware responses.
     """
     if not request.message or not request.message.strip():
@@ -123,7 +140,7 @@ async def chat(request: ChatRequest):
         )
     
     try:
-        # Step 5: RAG Retrieval Flow
+        # RAG Retrieval Flow
         context_text = ""
         retrieved_docs = []
         
@@ -203,6 +220,104 @@ async def chat(request: ChatRequest):
             status_code=500,
             detail=f"Error generating response: {str(e)}"
         )
+
+
+@app.post("/ingest", response_model=IngestionResponse)
+async def ingest_document(
+    file: UploadFile = File(..., description="Document file to ingest (PDF, Markdown, or Text)")
+):
+    """
+    Document ingestion endpoint.
+    
+    Accepts file uploads and ingests them into Firestore with embeddings.
+    Only accessible from whitelisted IP addresses.
+    
+    Supported file types:
+    - PDF (.pdf)
+    - Markdown (.md, .markdown)
+    - Plain text (.txt)
+    """
+    # Check if ingestion is enabled
+    if not settings.ingestion_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Document ingestion is currently disabled"
+        )
+    
+    # Check if required services are available
+    if not gemini_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Gemini API is not configured. Please set GEMINI_API_KEY environment variable."
+        )
+    
+    if not firestore_client:
+        raise HTTPException(
+            status_code=503,
+            detail="Firestore is not configured. Please set GCP_PROJECT_ID environment variable."
+        )
+    
+    # Validate file type
+    allowed_extensions = ['.pdf', '.md', '.markdown', '.txt']
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file_ext}. Supported types: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (max 10MB)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    content = await file.read()
+    
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds maximum allowed size of {MAX_FILE_SIZE / (1024*1024):.1f}MB"
+        )
+    
+    try:
+        # Initialize ingestion service
+        ingestion_service = IngestionService(
+            gemini_client=gemini_client,
+            firestore_client=firestore_client
+        )
+        
+        # Ingest document
+        result = ingestion_service.ingest_document(
+            content=content,
+            filename=file.filename or "uploaded_file",
+            metadata={
+                "upload_source": "api",
+                "content_type": file.content_type
+            }
+        )
+        
+        if result["success"]:
+            return IngestionResponse(
+                success=True,
+                filename=result["filename"],
+                chunks_created=result["chunks_created"],
+                total_chunks=result["total_chunks"],
+                message=f"Successfully ingested {result['chunks_created']} chunks from {result['filename']}"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=result.get("error", "Failed to ingest document")
+            )
+            
+    except ValueError as e:
+        # Handle validation errors
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error ingesting document: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error ingesting document: {str(e)}"
+        )
+
 
 port = int(os.environ.get("PORT", 8000))
 

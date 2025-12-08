@@ -96,6 +96,30 @@ python ingest_docs.py docs/ --metadata '{"source": "user_manual", "version": "1.
    - Metadata (source file, chunk index, etc.)
    - Timestamp
 
+## Deployment
+
+```bash
+cd ingestion
+
+# Set your project ID
+export PROJECT_ID=your-gcp-project-id
+export REGION=us-central1
+export SERVICE_NAME=rag-ingestion
+
+# Build and deploy
+gcloud run deploy $SERVICE_NAME \
+  --source . \
+  --platform managed \
+  --region $REGION \
+  --allow-unauthenticated \
+  --service-account rag-chatbot-sa@$PROJECT_ID.iam.gserviceaccount.com \
+  --env-vars-file env.yaml \
+  --memory 2Gi \
+  --cpu 2 \
+  --timeout 3600 \
+  --max-instances 10
+```
+
 ## Troubleshooting
 
 **"GEMINI_API_KEY is required" error?**

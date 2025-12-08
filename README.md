@@ -1,19 +1,3 @@
-# GCP RAG Chatbot - Step 6: Document Ingestion
-
-A minimal RAG chatbot project - currently at **Step 6: Document Ingestion**.
-
-## Current Status
-
-✅ **Step 6 Complete**: Document ingestion scripts for populating Firestore
-
-- Backend: FastAPI with `/chat` POST endpoint using Gemini API
-- Frontend: React chat interface with message history
-- AI Integration: Real AI responses via Google Gemini API
-- Document Storage: Firestore client for storing and retrieving documents
-- **RAG Retrieval**: Vector similarity search with context-aware responses
-- **Document Ingestion**: Scripts to process and ingest documents into Firestore
-- Configuration: Environment-based settings with Pydantic
-
 ## Quick Start
 
 ### Backend
@@ -36,31 +20,12 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-**Get your Gemini API Key:**
-
-1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Create a new API key
-3. Add it to your `.env` file: `GEMINI_API_KEY=your_key_here`
-
-**Set up Firestore:**
-
-1. Create a GCP project (or use an existing one)
-2. Enable Firestore API in the GCP Console
-3. Create a Firestore database in Native mode
-4. For local development, authenticate: `gcloud auth application-default login`
-5. Add to your `.env` file: `GCP_PROJECT_ID=your-project-id`
 
 Backend will be available at `http://localhost:8000`
 
-**API Endpoints:**
-
-- `GET /` - Root endpoint
-- `GET /health` - Health check (includes Gemini and Firestore status)
-- `POST /chat` - Chat endpoint with RAG-enabled AI responses (accepts `{"message": "your text"}`)
-
 ### Document Ingestion
 
-Before using RAG, you need to ingest documents into Firestore:
+Before using RAG, you need to ingest documents into Firestore from the frontend or with the ingestion service:
 
 ```bash
 cd ingestion
@@ -118,42 +83,6 @@ Expected response:
   "message": "What is artificial intelligence?"
 }
 ```
-
-## What's New in Step 6
-
-### Ingestion Scripts
-
-- ✅ Document ingestion script (`ingestion/ingest_docs.py`)
-- ✅ Support for multiple file formats (Markdown, PDF, Text)
-- ✅ Automatic text chunking with configurable size and overlap
-- ✅ Embedding generation for document chunks
-- ✅ Firestore storage with metadata
-- ✅ CLI interface with flexible options
-- ✅ Error handling and validation
-- ✅ Directory processing with recursive search
-
-### Backend Changes
-
-- ✅ Implemented RAG retrieval flow in chat endpoint
-- ✅ Added embedding generation to `GeminiClient`
-- ✅ Added vector similarity search to `FirestoreClient`
-- ✅ Created text processing utilities (`chunk_text`, `sanitize_input`)
-- ✅ RAG configuration (top_k, similarity threshold, enable/disable)
-- ✅ Context-aware prompt generation with retrieved documents
-- ✅ Graceful fallback when RAG retrieval fails
-
-## Previous Steps
-
-### Step 5: RAG Retrieval
-
-- ✅ Implemented RAG retrieval flow in chat endpoint
-- ✅ Added embedding generation to `GeminiClient`
-- ✅ Added vector similarity search to `FirestoreClient`
-- ✅ Created text processing utilities (`chunk_text`, `sanitize_input`)
-- ✅ RAG configuration (top_k, similarity threshold, enable/disable)
-- ✅ Context-aware prompt generation with retrieved documents
-- ✅ Graceful fallback when RAG retrieval fails
-
 ### RAG Flow
 
 1. User sends a message
@@ -163,91 +92,6 @@ Expected response:
 5. Build context from retrieved documents
 6. Generate response using Gemini with context
 
-## Previous Steps
-
-### Step 4: Firestore Integration
-
-- ✅ Integrated Firestore for document storage
-- ✅ Created `FirestoreClient` service module
-- ✅ Firestore configuration (project ID, collection name)
-- ✅ Health check includes Firestore connection status
-- ✅ Document storage and retrieval capabilities
-
-## Previous Steps
-
-### Step 3: Gemini API Integration
-
-- ✅ Integrated Gemini API for AI responses
-- ✅ Created `GeminiClient` service module
-- ✅ Configuration management with `pydantic-settings`
-- ✅ Environment variable support (`.env` file)
-- ✅ System prompt configuration
-- ✅ Error handling for API failures
-- ✅ Health check includes Gemini status
-
-### Configuration
-
-Create a `.env` file in the `backend/` directory:
-
-```env
-# Gemini API
-GEMINI_API_KEY=your_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_TEMPERATURE=0.7
-GEMINI_EMBEDDING_MODEL=models/text-embedding-004
-SYSTEM_PROMPT=You are a helpful AI assistant...
-
-# Firestore
-GCP_PROJECT_ID=your-gcp-project-id
-GCP_LOCATION=global
-FIRESTORE_COLLECTION=documents
-
-# Text Processing
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-
-# RAG Configuration
-RAG_ENABLED=true
-RAG_TOP_K=5
-RAG_SIMILARITY_THRESHOLD=0.0
-
-# Application
-DEBUG=false
-```
-
-### Project Structure
-
-```
-backend/
-  app/
-    main.py              # FastAPI app with /chat endpoint (RAG-enabled)
-    config.py            # Configuration management
-    services/
-      gemini_client.py   # Gemini API client (with embeddings)
-      firestore_client.py # Firestore client (with vector search)
-    utils/
-      text_processing.py # Text chunking and sanitization utilities
-  tests/
-    test_main.py         # API endpoint tests
-  requirements.txt       # Dependencies including google-generativeai, google-cloud-firestore
-  .env.example          # Environment variables template
-
-frontend/
-  src/
-    App.tsx              # Chat interface component
-    components/
-      Avatars.tsx        # Avatar components
-    hooks/
-      useAutoScroll.ts   # Auto-scroll hook
-    types/
-      chat.ts           # TypeScript types
-  package.json
-
-ingestion/
-  ingest_docs.py        # Document ingestion script
-  requirements.txt      # Ingestion dependencies
-  README.md             # Ingestion documentation
-```
 
 ## Backend deployment
 
@@ -258,99 +102,6 @@ gcloud run deploy rag-backend \
   --platform managed \
   --allow-unauthenticated \
   --region us-central1 \
-  --env-vars-file .env.yaml
+  --env-vars-file env.yaml
 ```
 
-## Testing
-
-Run backend tests:
-
-```bash
-cd backend
-pytest tests/ -v --cov=app --cov-report=xml --cov-report=term
-```
-
-Tests include:
-
-- Endpoint validation
-- Gemini API integration (mocked)
-- Error handling
-- Input validation
-
-## Next Steps
-
-We'll build incrementally:
-
-- ✅ Step 1: Health check endpoint
-- ✅ Step 2: Basic chat endpoint
-- ✅ Step 3: Gemini API integration
-- ✅ Step 4: Firestore integration
-- ✅ Step 5: Implement RAG retrieval
-- ✅ Step 6: Add ingestion scripts (current)
-
-**All core features are now complete!** The RAG chatbot is fully functional with:
-
-- Document ingestion capabilities
-- Vector similarity search
-- Context-aware AI responses
-- Production-ready architecture
-
-## Troubleshooting
-
-**Gemini API errors?**
-
-- Verify `GEMINI_API_KEY` is set in `.env` file
-- Check API key is valid at [Google AI Studio](https://makersuite.google.com/app/apikey)
-- Check API quota/limits
-- Review backend logs for detailed error messages
-
-**Firestore errors?**
-
-- Verify `GCP_PROJECT_ID` is set in `.env` file
-- Ensure Firestore API is enabled in your GCP project
-- For local development, run: `gcloud auth application-default login`
-- Check that Firestore database exists in Native mode
-- Verify service account has `roles/datastore.user` permission (for Cloud Run)
-- Review backend logs for detailed error messages
-
-**503 Service Unavailable?**
-
-- Gemini client not initialized - check `GEMINI_API_KEY` is set
-- Firestore client not initialized - check `GCP_PROJECT_ID` is set
-- Review backend startup logs
-
-**CORS errors?**
-
-- Make sure backend CORS is configured for `http://localhost:5173`
-- Restart backend after any CORS config changes
-
-**Messages not sending?**
-
-- Check browser console for errors
-- Verify backend is running on port 8000
-- Check network tab for API call status
-- Verify Gemini API key is configured
-
-**Validation errors?**
-
-- Message must be between 1-1000 characters
-- Message cannot be empty or only whitespace
-
-**RAG not working?**
-
-- Verify `RAG_ENABLED=true` in `.env` file
-- Ensure Firestore has documents with embeddings (use ingestion script)
-- Check that `GEMINI_EMBEDDING_MODEL` is set correctly
-- Verify documents in Firestore have an `embedding` field
-- Review backend logs for RAG retrieval errors
-- If no documents are found, the system will fall back to general knowledge responses
-
-**Ingestion script errors?**
-
-- Verify `GEMINI_API_KEY` and `GCP_PROJECT_ID` are set in `.env` file
-- Ensure Firestore API is enabled in your GCP project
-- For local development, authenticate: `gcloud auth application-default login`
-- Check that the input file/directory exists and is readable
-- Verify file format is supported (`.md`, `.markdown`, `.pdf`, `.txt`)
-- Review ingestion logs for detailed error messages
-- Ensure PyPDF2 is installed correctly: `pip install PyPDF2`
