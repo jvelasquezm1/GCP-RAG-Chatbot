@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import {
   Trash2,
@@ -38,6 +38,20 @@ function App() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const messagesEndRef = useAutoScroll([messages, isLoading]);
+
+  // Initialize welcome message on component mount
+  useEffect(() => {
+    if (messages.length === 0) {
+      const welcomeMessage: Message = {
+        id: "welcome-message",
+        role: "assistant",
+        content:
+          "👋 Welcome! I am your dedicated assistant specializing in Juan Velasquez. My knowledge is based on specific documented context (RAG) about his career and achievements. What would you like to know about Juan Velasquez today?",
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -90,13 +104,14 @@ function App() {
     setMessages([]);
     setError(null);
     setTimeout(() => {
-      const systemMessage: Message = {
-        id: Date.now().toString(),
+      const welcomeMessage: Message = {
+        id: "welcome-message",
         role: "assistant",
-        content: "Chat history cleared successfully. Start a new conversation!",
+        content:
+          "👋 Welcome! I am your dedicated assistant specializing in Juan Velasquez. My knowledge is based on specific documented context (RAG) about his career and achievements. What would you like to know about him today?",
         timestamp: new Date(),
       };
-      setMessages([systemMessage]);
+      setMessages([welcomeMessage]);
     }, 100);
   };
 
